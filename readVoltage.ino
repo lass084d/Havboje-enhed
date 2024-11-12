@@ -5,7 +5,7 @@ int measureVolt_analogPin = 0;
 
 //Get the battery voltage, measured using the voltage divider circuit;
 float readVoltage(int R1, int R2, int analogPin) {
-  // analogRead values =(0-1023)=(0V-5V), coresponding to 205.8 "point" pr. 1V voltage increase;
+  // analogRead values =(0-1023)=(0V-5V), coresponding to 204.6 "point" pr. 1V voltage increase;
   float measuredVoltage = analogRead(analogPin) / (1023/5);
   float realVoltage = measuredVoltage * (R2/R1) + measuredVoltage;
   return realVoltage;
