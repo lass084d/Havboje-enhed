@@ -1,4 +1,4 @@
-// variable for voltage mesurement;
+// variables for voltage measurement;
 int d1_R1 = 2200000 // resistor name: divider#nr_R#nr
 int d1_R2 = 8800000
 int measureVolt_analogPin = 0;
