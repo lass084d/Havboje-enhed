@@ -1,16 +1,13 @@
 // variables for voltage measurement;
-int d1_R1 = 2200000 // resistor name: divider#nr_R#nr
-int d1_R2 = 8800000
+int d1_R1 = 2200000; // resistor name: divider#nr_R#nr
+int d1_R2 = 8800000;
 int measureVolt_analogPin = 0;
 
-//
-int resistance = 220;
+// variables for current measurement
+int current_R1 = 220; // resistor used to measure current;
 unsigned long checkInterval = 10000; //10 sekunder
 unsigned long lastCheckTime = 0;
 bool lanternOn = false;
-
-
-
 
 
 //Get the battery voltage, measured using the voltage divider circuit;
@@ -22,44 +19,24 @@ float readVoltage(int R1, int R2, int analogPin) {
 };
 
 
-void setup() {
+//Get the current through the lantern
+float readCurrent(int R1) {
+  //Get the voltage over current_R1 by the difference of the battery and lantern voltage
+  float voltDiff = readVoltage(d1_R1,d1_R2,0) - readVoltage(d1_R1,d1_R2,1); //battery voltage =pin0 & lantern voltage =pin1
+  float current = (voltDiff / current_R1);
+  return current;
 }
 
-void loop() {
-}
 
-
-// void setup() {
-//   Serial.begin(9600);
-//   bool lanterneStatus = CheckLaterne();
-
-//   if (lanterneStatus) {
-//     Serial.println("Lanterne Lyser");
-
-//   } else {
-//     Serial.println("Lanterne Lyser ikke");
-//   }
-// }
-// void loop() {
-  
-// }
-
-bool CheckLaterne (){ //Return the status of the latern (on=true) (off=false)
+// Check the current status of the lantern
+bool checkLantern (){ //Return the status of the latern (on=true) (off=false)
   unsigned long lastCheckTime = millis();
   unsigned long currentMillis = millis();
   lanternOn = false;
 
 
   while (currentMillis - lastCheckTime <= checkInterval) {
-    int sensorValue1 = analogRead(A0);
-    int sensorValue2 = analogRead(A1);
-
-    float voltDiff = sensorValue1 * (5.0 / 1023.0) - sensorValue2 * (5.0 / 1023.0);
-    float current = (voltDiff / resistance);
-    Serial.println(current);
-
-
-    if (current > 0.01) {
+    if (readCurrent(current_R1) > 0.01) {
       lanternOn= true;
       return lanternOn;
     }
@@ -68,4 +45,11 @@ bool CheckLaterne (){ //Return the status of the latern (on=true) (off=false)
     delay(50);
   }
   return lanternOn;
+}
+
+
+void setup() {
+}
+
+void loop() {
 }
