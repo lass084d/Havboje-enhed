@@ -1,13 +1,13 @@
 // variables for voltage measurement;
-int d1_R1 = 2200000; // resistor name: divider#nr_R#nr
-int d1_R2 = 8800000;
-int measureVolt_analogPin = 0;
+const int d1_R1 = 2200000; // resistor name: divider#nr_R#nr
+const int d1_R2 = 8800000;
+const int measureVolt_analogPin = 0;
 
 // variables for current measurement
-int current_R1 = 220; // resistor used to measure current;
-unsigned long checkInterval = 10000; //10 sekunder
-unsigned long lastCheckTime = 0;
-bool lanternOn = false;
+const int current_R1 = 220; // resistor used to measure current;
+const unsigned long checkInterval = 10000; //10 sekunder
+const unsigned long lastCheckTime = 0;
+const bool lanternOn = false;
 
 
 //Get the battery voltage, measured using the voltage divider circuit;
