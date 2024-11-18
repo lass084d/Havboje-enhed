@@ -33,6 +33,13 @@ void onEvent (ev_t ev) {
 
         // Planlægger næste transmission efter TX_INTERVAL
         os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+    } else if (ev == EV_JOINED) {  // Når enheden er tilsluttet netværket
+        Serial.println(F("EV_JOINED"));
+
+        // Sæt RX2 dataraten til SF9 (påkrævet for TTN)
+        LMIC.dn2Dr = DR_SF9;
+
+        Serial.println(F("RX2 datarate set to SF9"));
     }
 }
 
