@@ -7,7 +7,7 @@ const int measureVolt_analogPin = 0;
 const int current_R1 = 220; // resistor used to measure current;
 const unsigned long checkInterval = 10000; //10 sekunder
 const unsigned long lastCheckTime = 0;
-const bool lanternOn = false;
+bool lanternOn = false;
 
 
 //Get the battery voltage, measured using the voltage divider circuit;
