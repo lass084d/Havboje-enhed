@@ -1,79 +1,74 @@
-// Inkluderer LMIC-biblioteket til LoRaWAN-protokollen og HAL (Hardware Abstraction Layer)
+// MIT License
+// https://github.com/gonzalocasas/arduino-uno-dragino-lorawan/blob/master/LICENSE
+// Baseret på eksempler fra https://github.com/matthijskooijman/arduino-lmic
+// Copyright (c) 2015 Thomas Telkamp og Matthijs Kooijman
+
+// Tilpasninger: Andreas Spiess
 #include <lmic.h>
 #include <hal/hal.h>
 
-// OTAA værdier (Over-the-Air Activation) for at autentificere enheden på LoRaWAN-netværket
-static const u1_t APPEUI[8] = {0x10, 0x99, 0x88, 0x77, 0x66, 0x56, 0x34, 0x12}; // Application EUI (identificerer applikationen)
-static const u1_t DEVEUI[8] = {0x69, 0x3A, 0x00, 0xD8, 0x7E, 0xD5, 0xB3, 0x70}; // Device EUI (unik enheds-ID)
-static const u1_t APPKEY[16] = {0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58, 0x09, 0x6F, 0xEC, 0x75, 0x67, 0xD4, 0xC1, 0x2D}; // Krypteringsnøgle
+// OTAA værdier til LoRa modul - APPEUI, DEVEUI og APPKEY bruges til at identificere og sikre forbindelsen.
+static const u1_t APPEUI[8] = {0x10, 0x99, 0x88, 0x77, 0x66, 0x56, 0x34, 0x12};
+static const u1_t DEVEUI[8] = {0x69, 0x3A, 0x00, 0xD8, 0x7E, 0xD5, 0xB3, 0x70};
+static const u1_t APPKEY[16] = {0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58, 0x09, 0x6F, 0xEC, 0x75, 0x67, 0xD4, 0xC1, 0x2D};
 
-// Callback-funktioner, der leverer ovenstående nøgler til LMIC, når de bliver efterspurgt
-void os_getArtEui (u1_t* buf) { memcpy(buf, APPEUI, 8); }  // APPEUI overføres til LMIC-bufferen
-void os_getDevEui (u1_t* buf) { memcpy(buf, DEVEUI, 8); }  // DEVEUI overføres til LMIC-bufferen
-void os_getDevKey (u1_t* buf) { memcpy(buf, APPKEY, 16); } // APPKEY overføres til LMIC-bufferen
+// Callbacks til at hente OTAA-nøgler - sender APPEUI, DEVEUI og APPKEY til netværksmodulet.
+void os_getArtEui (u1_t* buf) { memcpy(buf, APPEUI, 8); }
+void os_getDevEui (u1_t* buf) { memcpy(buf, DEVEUI, 8); }
+void os_getDevKey (u1_t* buf) { memcpy(buf, APPKEY, 16); }
 
-// Opretter en jobstruktur til planlagte opgaver som at sende data
-static osjob_t sendjob;
+static osjob_t sendjob; // Variabel til at håndtere tidsplanlagte opgaver
 
-// Definerer intervallet mellem transmissioner (660 sekunder = 11 minutter)
-const unsigned TX_INTERVAL = 660;
+// Interval for dataoverførsel (i sekunder)
+const unsigned TX_INTERVAL = 100;
 
-// Pin-konfiguration for Dragino LoRa Shield
+// Pin-konfiguration til Dragino Shield - specificerer hvilke pins, der bruges.
 const lmic_pinmap lmic_pins = {
-    .nss = 10,                // SPI "chip select" pin
-    .rxtx = LMIC_UNUSED_PIN,  // Ikke brugt
-    .rst = 9,                 // Reset pin
-    .dio = {2, 3, 4},         // Digital I/O pins for LoRa-modulet
+    .nss = 10,
+    .rxtx = LMIC_UNUSED_PIN,
+    .rst = 9,
+    .dio = {2, 6, 7},
 };
 
-// Callback-funktion, der håndterer LoRaWAN-begivenheder
+// Eventhåndtering - denne funktion kaldes, når der sker bestemte begivenheder.
 void onEvent (ev_t ev) {
-    if (ev == EV_TXCOMPLETE) {  // Når en transmission er færdig
-        Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
-
-        // Planlægger næste transmission efter TX_INTERVAL
+    if (ev == EV_TXCOMPLETE) { // Tjekker om transmissionen er afsluttet
+        Serial.println(F("EV_TXCOMPLETE (inkluderer ventetid på RX vinduer)"));
+        // Planlæg næste transmission
         os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
-    } else if (ev == EV_JOINED) {  // Når enheden er tilsluttet netværket
-        Serial.println(F("EV_JOINED"));
-
-        // Sæt RX2 dataraten til SF9 (påkrævet for TTN)
-        LMIC.dn2Dr = DR_SF9;
-
-        Serial.println(F("RX2 datarate set to SF9"));
     }
 }
 
-// Funktion til at sende data via LoRaWAN
-void do_send(osjob_t* j){
-    // Data, der skal sendes (payload) – i dette tilfælde "hi" i tekstform
-    static uint8_t message[] = {0x68, 0x69};  // Hexadecimal repræsentation af "hi"
+// Funktion til at sende data
+void do_send(osjob_t* j) {
+    // Data (payload) der skal sendes
+    static uint8_t message[] = "hio"; // Data-pakke til uplink
 
-    // Checker, om der allerede er en igangværende transmission
+    // Tjekker, om der allerede kører en TX/RX-job
     if (LMIC.opmode & OP_TXRXPEND) {
-        Serial.println(F("OP_TXRXPEND, not sending")); // Hvis der allerede sendes, sendes der ikke nyt
+        Serial.println(F("OP_TXRXPEND, sender ikke"));
     } else {
-        // Forbered transmission af data
-        LMIC_setTxData2(1, message, sizeof(message), 0); // Port 1, payload, længde, uacknowledged
-        Serial.println(F("Sending uplink packet..."));  // Debug output
+        // Forbered data til næste mulige transmission
+        LMIC_setTxData2(1, message, sizeof(message)-1, 0);
+        Serial.println(F("Sender uplink-pakke..."));
     }
+    // Næste transmission planlægges efter TX_COMPLETE event.
 }
 
-// Setup-funktionen initialiserer alt og kører én gang ved opstart
 void setup() {
-    Serial.begin(115200);  // Starter seriekommunikation for debug-output
-    Serial.println(F("Starting..."));
+    Serial.begin(115200); // Starter seriel kommunikation
+    Serial.println(F("Starter..."));
 
-    // Initialiserer LMIC-biblioteket
-    os_init();
+    os_init(); // Initialiserer LMIC-biblioteket
+    LMIC_reset(); // Nulstiller MAC-status og afbryder evt. ventende dataoverførsler
 
-    // Nulstiller LMIC, så tidligere sessioner og data slettes
-    LMIC_reset();
+    // Sætter spredningsfaktoren til SF9 og sendeeffekten til 14 dBm
+    LMIC_setDrTxpow(DR_SF9, 14); 
 
-    // Starter første transmission med do_send
+    // Starter det første send-job
     do_send(&sendjob);
 }
 
-// Loop-funktionen kører kontinuerligt og håndterer LMIC's baggrundsopgaver
 void loop() {
-    os_runloop_once(); // Kører én iteration af LMIC's eventloop
+    os_runloop_once(); // Kører én iteration af LMIC's hovedløkkefunktion
 }
