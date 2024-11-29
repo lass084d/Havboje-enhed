@@ -1,28 +1,28 @@
 // MIT License
 // https://github.com/gonzalocasas/arduino-uno-dragino-lorawan/blob/master/LICENSE
-// Baseret på eksempler fra https://github.com/matthijskooijman/arduino-lmic
-// Copyright (c) 2015 Thomas Telkamp og Matthijs Kooijman
+// Based on examples from https://github.com/matthijskooijman/arduino-lmic
+// Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
 
-// Tilpasninger: Andreas Spiess
+// Adaptions: Andreas Spiess
 #include <lmic.h>
 #include <hal/hal.h>
 
-// OTAA værdier til LoRa modul - APPEUI, DEVEUI og APPKEY bruges til at identificere og sikre forbindelsen.
+// OTAA værdier til LoRa modul
 static const u1_t APPEUI[8] = {0x10, 0x99, 0x88, 0x77, 0x66, 0x56, 0x34, 0x12};
 static const u1_t DEVEUI[8] = {0x69, 0x3A, 0x00, 0xD8, 0x7E, 0xD5, 0xB3, 0x70};
 static const u1_t APPKEY[16] = {0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58, 0x09, 0x6F, 0xEC, 0x75, 0x67, 0xD4, 0xC1, 0x2D};
 
-// Callbacks til at hente OTAA-nøgler - sender APPEUI, DEVEUI og APPKEY til netværksmodulet.
+// Disse callbacks bruges til at hente OTAA-nøgler
 void os_getArtEui (u1_t* buf) { memcpy(buf, APPEUI, 8); }
 void os_getDevEui (u1_t* buf) { memcpy(buf, DEVEUI, 8); }
 void os_getDevKey (u1_t* buf) { memcpy(buf, APPKEY, 16); }
 
-static osjob_t sendjob; // Variabel til at håndtere tidsplanlagte opgaver
+static osjob_t sendjob;
 
-// Interval for dataoverførsel (i sekunder)
+// Schedule TX every this many seconds (might become longer due to duty cycle limitations).
 const unsigned TX_INTERVAL = 100;
 
-// Pin-konfiguration til Dragino Shield - specificerer hvilke pins, der bruges.
+// Pin mapping Dragino Shield
 const lmic_pinmap lmic_pins = {
     .nss = 10,
     .rxtx = LMIC_UNUSED_PIN,
@@ -30,45 +30,46 @@ const lmic_pinmap lmic_pins = {
     .dio = {2, 6, 7},
 };
 
-// Eventhåndtering - denne funktion kaldes, når der sker bestemte begivenheder.
 void onEvent (ev_t ev) {
-    if (ev == EV_TXCOMPLETE) { // Tjekker om transmissionen er afsluttet
-        Serial.println(F("EV_TXCOMPLETE (inkluderer ventetid på RX vinduer)"));
-        // Planlæg næste transmission
+    if (ev == EV_TXCOMPLETE) {
+        Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
+        // Schedule next transmission
         os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
     }
 }
 
-// Funktion til at sende data
-void do_send(osjob_t* j) {
-    // Data (payload) der skal sendes
-    static uint8_t message[] = "hio"; // Data-pakke til uplink
+void do_send(osjob_t* j){
+    // Payload to send (uplink)
+    static uint8_t message[] = "hio"; // Hexadecimal for "Hello"
 
-    // Tjekker, om der allerede kører en TX/RX-job
+    // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
-        Serial.println(F("OP_TXRXPEND, sender ikke"));
+        Serial.println(F("OP_TXRXPEND, not sending"));
     } else {
-        // Forbered data til næste mulige transmission
+        // Prepare upstream data transmission at the next possible time.
         LMIC_setTxData2(1, message, sizeof(message)-1, 0);
-        Serial.println(F("Sender uplink-pakke..."));
+        Serial.println(F("Sending uplink packet..."));
     }
-    // Næste transmission planlægges efter TX_COMPLETE event.
+    // Next TX is scheduled after TX_COMPLETE event.
 }
 
 void setup() {
-    Serial.begin(115200); // Starter seriel kommunikation
-    Serial.println(F("Starter..."));
+    Serial.begin(115200);
+    Serial.println(F("Starting..."));
 
-    os_init(); // Initialiserer LMIC-biblioteket
-    LMIC_reset(); // Nulstiller MAC-status og afbryder evt. ventende dataoverførsler
+    // LMIC init
+    os_init();
 
-    // Sætter spredningsfaktoren til SF9 og sendeeffekten til 14 dBm
-    LMIC_setDrTxpow(DR_SF9, 14); 
+    // Reset the MAC state. Session and pending data transfers will be discarded.
+    LMIC_reset();
 
-    // Starter det første send-job
+    // Set spreading factor to SF12
+    LMIC_setDrTxpow(DR_SF9, 14); // SF9, TX power 14 dBm
+
+    // Start job
     do_send(&sendjob);
 }
 
 void loop() {
-    os_runloop_once(); // Kører én iteration af LMIC's hovedløkkefunktion
+    os_runloop_once();
 }
