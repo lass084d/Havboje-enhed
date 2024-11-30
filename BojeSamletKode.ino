@@ -19,6 +19,9 @@ const float shuntResistor = 0.1;
 // Lanternestatus
 bool lanternOn = false;
 
+//Array for kontrol af lanterne indenfor 24 timer:
+bool lanterne[24] ={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; 
+
 // Tidsstyring
 unsigned long startTime = 0; // Timer til fase 1 og 2
 unsigned long statusSendTime = 0; // Timer til fase 3
@@ -81,16 +84,21 @@ void setup() {
     Serial.println(F("System start..."));
 }
 
-void loop() {
-    unsigned long currentTime = millis();
-
-    if (inCollisionBatteryCheckPhase) {
-        // Fase 1: Kontrollér kollision og batteri konstant
-        mpu.update();
+float totalAcc(){
+            mpu.update();
         float accX = mpu.getAccX();
         float accY = mpu.getAccY();
         float accZ = mpu.getAccZ();
         float totalAcc = sqrt(accX * accX + accY * accY + accZ * accZ);
+    return totalAcc;
+}
+
+
+void loop() {
+    unsigned long currentTime = millis();
+
+        // Fase 1: Kontrollér kollision og batteri konstant
+        float totalAcc = totalAcc();
 
         // Kollisionsdetektion
         if (totalAcc > 3.0) {
@@ -105,26 +113,16 @@ void loop() {
             do_send(&sendjob, "Lav batterispænding");
         }
 
-        // Skift til næste fase efter en time
+        // Skift til næste fase efter en time // Fase 2: Kontrollér lanternen én gang
         if (currentTime - startTime >= checkInterval) {
-            inCollisionBatteryCheckPhase = false;
             startTime = millis(); // Genstart timeren til fase 2
-        }
-    } else {
-        // Fase 2: Kontrollér lanternen én gang
         Serial.println("Tjekker lanternestatus...");
         bool lanternStatus = checkLantern();
-        if (!lanternStatus) {
+        if (!lanternStatus) { //OPDATER DETTE; DA DEN IKKE TJEKKER DE SENESTE 24 TIMER!
             Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
             do_send(&sendjob, "Lanternen fejler");
         }
-
-        // Skift tilbage til fase 1
-        inCollisionBatteryCheckPhase = true;
-        startTime = millis(); // Genstart timeren til fase 1
-    }
-
-    // Fase 3: Send statusbesked én gang hver 24. time
+             // Fase 3: Send statusbesked én gang hver 24. time
     if (currentTime - statusSendTime >= statusInterval) {
         float batteryVoltage = readBatteryVoltage();
         String statusMessage = String(batteryVoltage, 1); // Batterispænding med én decimal
@@ -133,7 +131,7 @@ void loop() {
         do_send(&sendjob, statusMessage);
         statusSendTime = millis(); // Genstart timeren til statusbesked
     }
-
+    }
     os_runloop_once();
 }
 
