@@ -242,7 +242,8 @@ void loop() {
       Serial.println(statusMessage);
       do_send(&sendjob, statusMessage);
       statusSendTime = millis();  // Genstart timeren til statusbesked
-      
+
+      // Reset af arduino
       if (millis() >= days48) {
         wdt_enable(WDTO_15MS);
         while (true) {}
