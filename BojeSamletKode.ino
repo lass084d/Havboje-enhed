@@ -19,8 +19,8 @@ const float shuntResistor = 0.1;
 // Lanternestatus
 bool lanternOn = false;
 
-//Array for kontrol af lanterne indenfor 24 timer:
-bool lanterne[24] ={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; 
+// Time styring
+uint32_t lanternData = 0b11111111111111111111111111111111;
 
 // Tidsstyring
 unsigned long startTime = 0; // Timer til fase 1 og 2
@@ -28,6 +28,9 @@ unsigned long statusSendTime = 0; // Timer til fase 3
 const unsigned long checkInterval = 3600000; // 1 time (3600000 ms)
 const unsigned long statusInterval = 86400000; // 24 timer (86400000 ms)
 bool inCollisionBatteryCheckPhase = true; // Styrer faserne i loop
+
+// 48 dage i milisekunder
+unsigned long days48 = 4147200000;
 
 // Kollisionsdetektion
 MPU6050 mpu(Wire);
@@ -108,7 +111,7 @@ void loop() {
 
         // Batterispænding
         float batteryVoltage = readBatteryVoltage();
-        if (batteryVoltage < 7.0) { // F.eks. tærskelværdi for lav spænding
+        if (batteryVoltage < 6.0) { // F.eks. tærskelværdi for lav spænding
             Serial.println("Lav batterispænding detekteret!");
             do_send(&sendjob, "Lav batterispænding");
         }
@@ -117,8 +120,15 @@ void loop() {
         if (currentTime - startTime >= checkInterval) {
             startTime = millis(); // Genstart timeren til fase 2
         Serial.println("Tjekker lanternestatus...");
+            lanternData = lanternData >> 1;
+            
         bool lanternStatus = checkLantern();
-        if (!lanternStatus) { //OPDATER DETTE; DA DEN IKKE TJEKKER DE SENESTE 24 TIMER!
+        if (lanterneStaus) {
+          lanternData = lanternData | 0b10000000000000000000000000000000;
+        } else {
+          lanternData = lantaernData & 0b01111111111111111111111111111111;
+        }
+        if (lanternData<255)  { 
             Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
             do_send(&sendjob, "Lanternen fejler");
         }
