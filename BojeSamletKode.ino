@@ -12,8 +12,8 @@ static const u1_t APPKEY[16] = {0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58, 
 // Spændings- og strømforbrugsmåling
 const int measureVoltPin = A0;
 const int currentMeasurePin = A1;
-const int d1_R1 = 2200000;
-const int d1_R2 = 8800000;
+const int d1_R1 = 1000000;
+const int d1_R2 = 2200000; // <-- Voltage measured over R
 const float shuntResistor = 0.1;
 
 // Lanternestatus
@@ -55,9 +55,9 @@ void do_send(osjob_t* j, String message) {
     Serial.println(message);
 }
 
-float readBatteryVoltage() {
+float readBatteryVoltage(int R1, int R2) {
     float measuredVoltage = analogRead(measureVoltPin) * 5.0 / 1023.0;
-    return measuredVoltage * (d1_R1 + d1_R2) / d1_R1;
+    return measuredVoltage * (R1/R2) + measuredVoltage;
 }
 
 float readCurrent() {
