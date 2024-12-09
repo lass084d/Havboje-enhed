@@ -107,7 +107,7 @@ void loop() {
         }
 
         // Batterispænding
-        float batteryVoltage = readBatteryVoltage();
+        float batteryVoltage = readBatteryVoltage(d1_R1,d1_R2);
         if (batteryVoltage < 7.0) { // F.eks. tærskelværdi for lav spænding
             Serial.println("Lav batterispænding detekteret!");
             do_send(&sendjob, "Lav batterispænding");
