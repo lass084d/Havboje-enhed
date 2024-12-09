@@ -16,9 +16,12 @@ static const u1_t APPKEY[16] = { 0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58,
 // Spændings- og strømforbrugsmåling
 const int measureVoltPin = A0;
 const int currentMeasurePin = A1;
+const int currentMeasurePin = D8;
+boolean currentMeasurePinVal = 0;
+unsigned long lastCurrentCheckTime = 0;
+const unsigned long checkCurrentInterval = 10000;
 const int d1_R1 = 1000000;
 const int d1_R2 = 2200000; // <-- Voltage measured over R
-const float shuntResistor = 0.1;
 
 // Lanternestatus
 bool lanternOn = false;
@@ -92,14 +95,21 @@ float readBatteryVoltage(int R1, int R2) {
     return measuredVoltage * (R1/R2) + measuredVoltage;
 }
 
-float readCurrent() {
-  float voltageDrop = analogRead(currentMeasurePin) * 5.0 / 1023.0;
-  return voltageDrop / shuntResistor;
-}
-
-bool checkLantern() {
-  float current = readCurrent();
-  return current > 0.01;
+bool checkLantern(){ //Return the status of the latern (on=true) (off=false)
+  unsigned long lastCurrentCheckTime = millis();
+  unsigned long currentMillis = millis();
+  lanternOn = false;
+  while (currentMillis - lastCurrentCheckTime <= checkCurrentInterval) {
+    currentMeasurePinVal = digitalRead(currentMeasurePin); 
+    if (currentMeasurePinVal == HIGH) {
+      lanternOn= true;
+      return lanternOn;
+    }
+    
+    currentMillis = millis();
+    delay(50);
+  }
+  return lanternOn;
 }
 
 float DecimalDegrees(char* x) {
