@@ -1,7 +1,7 @@
 //ÆNDRING AF BRANCH
 // variables for voltage measurement;
 const int d1_R1 = 2200000; // resistor name: divider#nr_R#nr
-const int d1_R2 = 8800000;
+const int d1_R2 = 10000000;
 const int measureVolt_analogPin = 0;
 
 // variables for current measurement

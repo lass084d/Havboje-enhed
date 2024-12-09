@@ -15,11 +15,12 @@ static const u1_t APPKEY[16] = { 0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58,
 
 // Spændings- og strømforbrugsmåling
 const int measureVoltPin = A0;
-const int currentMeasurePin = A1;
+
 const int currentMeasurePin = D8;
 boolean currentMeasurePinVal = 0;
 unsigned long lastCurrentCheckTime = 0;
 const unsigned long checkCurrentInterval = 10000;
+
 const int d1_R1 = 1000000;
 const int d1_R2 = 2200000; // <-- Voltage measured over R
 
@@ -94,7 +95,6 @@ float readBatteryVoltage(int R1, int R2) {
     float measuredVoltage = analogRead(measureVoltPin) * 5.0 / 1023.0;
     return measuredVoltage * (R1/R2) + measuredVoltage;
 }
-
 bool checkLantern(){ //Return the status of the latern (on=true) (off=false)
   unsigned long lastCurrentCheckTime = millis();
   unsigned long currentMillis = millis();
@@ -128,7 +128,7 @@ bool CheckPos(position pos) {
   double c = 2 * atan2(sqrt(a), sqrt(1 - a));
   double distance = EarthR * c * 1000;
   return distance >= geoFenceRadius;
-}
+
 
 bool isValidPos(position pos) {
   if (pos._lat != 0.0 && pos._lon != 0.0) {
@@ -213,16 +213,13 @@ void loop() {
     Serial.println("Kollision detekteret!");
     do_send(&sendjob, "K");
   }
-
-  // Batterispænding
-  float batteryVoltage = readBatteryVoltage(d1_R1,d1_R2);
-  Serial.println(batteryVoltage);
-  if (batteryVoltage < 7) {  // F.eks. tærskelværdi for lav spænding
-    Serial.println("Lav batterispænding detekteret!");
-    do_send(&sendjob, "B");
-  }
-
-  // Skift til næste fase efter en time // Fase 2: Kontrollér lanternen én gang
+        // Batterispænding
+        float batteryVoltage = readBatteryVoltage(d1_R1,d1_R2);
+        if (batteryVoltage < 7.0) { // F.eks. tærskelværdi for lav spænding
+            Serial.println("Lav batterispænding detekteret!");
+            do_send(&sendjob, "Lav batterispænding");
+        }
+  
   if (currentTime - startTime >= checkInterval) {
     startTime = millis();  // Genstart timeren til fase 2
     Serial.println("Tjekker lanternestatus...");
@@ -233,33 +230,23 @@ void loop() {
       lanternData = lanternData | 0b10000000000000000000000000000000;
     } else {
       lanternData = lanternData & 0b01111111111111111111111111111111;
-    }
-    if (lanternData < 255) {
+      if (lanternData < 255) {
       Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
       do_send(&sendjob, "L");
     }
-
-    currentPos = AcquireBasePos();
+      currentPos = AcquireBasePos();
     outOfArea = CheckPos(currentPos);
     if (outOfArea) {
       Serial.println("Buoy er uden for område!");
       do_send(&sendjob, "P");
     }
-
-    // Fase 3: Send statusbesked én gang hver 24. time
-    if (currentTime - statusSendTime >= statusInterval) {
-      float batteryVoltage = readBatteryVoltage();
-      String statusMessage = String(batteryVoltage, 1);  // Batterispænding med én decimal
-      Serial.print("Sender statusbesked: ");
-      Serial.println(statusMessage);
-      do_send(&sendjob, statusMessage);
-      statusSendTime = millis();  // Genstart timeren til statusbesked
-
-      // Reset af arduino
-      if (millis() >= days48) {
-        wdt_enable(WDTO_15MS);
-        while (true) {}
-      }
+          if (currentTime - statusSendTime >= statusInterval) {
+        float batteryVoltage = readBatteryVoltage();
+        String statusMessage = String(batteryVoltage, 1); // Batterispænding med én decimal
+        Serial.print("Sender statusbesked: ");
+        Serial.println(statusMessage);
+        do_send(&sendjob, statusMessage);
+        statusSendTime = millis(); // Genstart timeren til statusbesked
     }
   }
   os_runloop_once();
