@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
+#define CFG_eu868
 #include <lmic.h>
 #include <hal/hal.h>
 #include <math.h>
@@ -41,7 +42,8 @@ bool inCollisionBatteryCheckPhase = true;      // Styrer faserne i loop
 unsigned long hour;
 unsigned long currentHour = 0;
 int hour24 = 0;
-const int millisInHour = 3600000/100;
+const int millisInHour = 15000;
+//const int millisInHour = 3600000;
 
 
 // Kollisionsdetektion
@@ -59,15 +61,14 @@ const lmic_pinmap lmic_pins = {
 static osjob_t sendjob;
 
 // GPS opsætning
-#define GPSport1 3
-#define GPSport2 2
+#define GPSport1 4
+#define GPSport2 3
 #define GPSBaud 9600
-#define geoFenceRadius 10
+#define geoFenceRadius 25
 SoftwareSerial GPSserial(GPSport1, GPSport2);
 TinyGPSMinus gps;
 
 const double EarthR = 6371.6;
-bool gpsAnchor = false;
 bool outOfArea = false;
 
 struct position {
@@ -145,39 +146,38 @@ bool isValidPos(position pos) {
   }
 }
 
-position AcquireBasePos() {
-  const int length = 20;
-  position estimatePos[length];
-  int count = 0;
-  double resultLat = 0;
-  double resultLon = 0;
+position GetPos() {
+  position currPos;
+  int i= 0;
+  int length = 50;
+  double estimatePosLat = 0;
+  double estimatePosLon = 0;
 
-  while (count < length) {
-    if (GPSserial.available() > 0) {
-      char datapoint = GPSserial.read();
-      position currPos;
-      bool newData = false;
-      if (gps.encode(datapoint)) {
-        newData = true;
+  while (i < length) {
+    bool newData = false;
+    while (!newData) {
+      if (GPSserial.available() > 0) {
+        char datapoint = GPSserial.read();
+
+        if (gps.encode(datapoint)) {
+          newData = true;
+        }
       }
       if (newData) {
         currPos._lat = DecimalDegrees(gps.get_latitude());
         currPos._lon = DecimalDegrees(gps.get_longitude());
+        //printPosition(currPos);
         if (isValidPos(currPos)) {
-          //printPosition(currPos); // Debug formål
-          estimatePos[count] = currPos;
-          resultLat = resultLat + estimatePos[count]._lat;
-          resultLon = resultLon + estimatePos[count]._lon;
-
-          count++;
+          estimatePosLat += currPos._lat;
+          estimatePosLon += currPos._lon;
+          i++;
         }
       }
     }
-    //calculate base position which is center of geofencing
-    position newBasePos = { (resultLat / length), (resultLon / length) };
-    gpsAnchor = true;
-    return newBasePos;
   }
+  currPos._lat = estimatePosLat/length;
+  currPos._lon = estimatePosLon/length;
+  return currPos;
 }
 
 float totalAcc() {
@@ -202,7 +202,7 @@ void setup() {
   startTime = millis();       // Start timeren til fase 1 og 2
   statusSendTime = millis();  // Start timeren til fase 3
 
-  // basePos = AcquireBasePos(); //udkommenteret til test
+  basePos = GetPos(); //udkommenteret til test
   Serial.println(F("System start..."));
 }
 
@@ -226,7 +226,7 @@ void loop() {
   if (batteryVoltage < 7.0) {  // F.eks. tærskelværdi for lav spænding
     Serial.print("Lav batterispænding detekteret!  ");
     Serial.println(batteryVoltage);
-    // do_send(&sendjob, "Lav batterispænding");
+    // do_send(&sendjob, "B");
   }
 
   if (currentHour != hour) {
@@ -243,14 +243,14 @@ void loop() {
       Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
       // do_send(&sendjob, "L");
     }
-    /*
-    currentPos = AcquireBasePos();
+    
+    currentPos = GetPos();
     outOfArea = CheckPos(currentPos);
     if (outOfArea) {
       Serial.println("Buoy er uden for område!");
       // do_send(&sendjob, "P");
     }
-    */
+    
     currentHour = hour;
     hour24++;
 
@@ -266,3 +266,25 @@ void loop() {
   }
   os_runloop_once();
 }
+  // Koden kører i 3 faser
+  // fase 1: Kontrollerer konstant for om der sker kollisioner eller om spændingen på batteriet er for lavt.
+  // fase 2: Efter fase 1 har kørt i 60 min skiftes der til fase 2. Denne kontrollerer om der inden for et interval på 24 er trukket en strøm fra lanternen.
+  // og lige efterfølgende kontrolleres positionen
+  // fase 3: Hvis der er gået 24 timer sendes der en statusbesked om batterispændingen.
+
+  /* Decoder til TTS:
+  function Decoder(bytes, port) {
+    let message = String.fromCharCode.apply(null, bytes);
+
+    let decodedMessage = {
+        "B": "Lav batterispænding detekteret",
+        "K": "Kollision registreret",
+        "L": "Lanternen har ikke lyst inden for de sidste 24 timer",
+        "P": "Bøje er uden for område"
+    };
+
+    return {
+        message: decodedMessage[message] || message
+    };
+}
+  */
