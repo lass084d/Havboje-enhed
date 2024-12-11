@@ -1,5 +1,5 @@
-#define swsRX 3
-#define swsTX 2
+#define swsRX 4
+#define swsTX 3
 
 //GPS Baudrate
 #define GPSBaud 9600
