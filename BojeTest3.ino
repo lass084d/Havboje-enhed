@@ -1,12 +1,10 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
-#define CFG_eu868
 #include <lmic.h>
 #include <hal/hal.h>
 #include <math.h>
 #include <SoftwareSerial.h>
 #include <TinyGPSMinus.h>
-//#include <avr/wdt.h>
 
 
 // LoRa OTAA værdier
@@ -46,6 +44,9 @@ const int millisInHour = 15000;
 //const int millisInHour = 3600000;
 
 
+bool batMessage = false;
+bool kollisionMessage = false;
+
 // Kollisionsdetektion
 MPU6050 mpu(Wire);
 
@@ -61,8 +62,9 @@ const lmic_pinmap lmic_pins = {
 static osjob_t sendjob;
 
 // GPS opsætning
-#define GPSport1 4
+#define GPSport1 50
 #define GPSport2 3
+
 #define GPSBaud 9600
 #define geoFenceRadius 25
 SoftwareSerial GPSserial(GPSport1, GPSport2);
@@ -135,6 +137,9 @@ bool CheckPos(position pos) {
   double a = sin(deltaLat / 2) * sin(deltaLat / 2) + cos(radians(basePos._lat)) * cos(radians(pos._lat)) * sin(deltaLon / 2) * sin(deltaLon / 2);
   double c = 2 * atan2(sqrt(a), sqrt(1 - a));
   double distance = EarthR * c * 1000;
+  printPosition(pos);
+  Serial.print("Dist from center: ");
+  Serial.println(distance, 6);
   return distance >= geoFenceRadius;
 }
 
@@ -166,7 +171,6 @@ position GetPos() {
       if (newData) {
         currPos._lat = DecimalDegrees(gps.get_latitude());
         currPos._lon = DecimalDegrees(gps.get_longitude());
-        //printPosition(currPos);
         if (isValidPos(currPos)) {
           estimatePosLat += currPos._lat;
           estimatePosLon += currPos._lon;
@@ -178,6 +182,12 @@ position GetPos() {
   currPos._lat = estimatePosLat/length;
   currPos._lon = estimatePosLon/length;
   return currPos;
+}
+
+void printPosition(position pos) {
+  Serial.print(pos._lat, 8);
+  Serial.print(", ");
+  Serial.println(pos._lon, 10);
 }
 
 float totalAcc() {
@@ -202,8 +212,9 @@ void setup() {
   startTime = millis();       // Start timeren til fase 1 og 2
   statusSendTime = millis();  // Start timeren til fase 3
 
-  basePos = GetPos(); //udkommenteret til test
   Serial.println(F("System start..."));
+  basePos = GetPos();
+  printPosition(basePos);
 }
 
 
@@ -217,16 +228,18 @@ void loop() {
   float actualAcc = totalAcc();
 
   // Kollisionsdetektion
-  if (actualAcc > 1.5) {
+  if (actualAcc > 1.5 && kollisionMessage == false) {
     Serial.println("Kollision detekteret!");
     // do_send(&sendjob, "K");
+   kollisionMessage = true;
   }
   // Batterispænding
   float batteryVoltage = readBatteryVoltage(d1_R1, d1_R2);
-  if (batteryVoltage < 7.0) {  // F.eks. tærskelværdi for lav spænding
+  if (batteryVoltage < 7.0 && batMessage == false) {  // F.eks. tærskelværdi for lav spænding
     Serial.print("Lav batterispænding detekteret!  ");
     Serial.println(batteryVoltage);
     // do_send(&sendjob, "B");
+    batMessage = true;
   }
 
   if (currentHour != hour) {
@@ -234,6 +247,7 @@ void loop() {
     lanternData = lanternData >> 1;
 
     bool lanternStatus = checkLantern();
+    Serial.println(lanternStatus);
     if (lanternStatus) {
       lanternData = lanternData | 0b10000000000000000000000000000000;
     } else {
@@ -243,14 +257,18 @@ void loop() {
       Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
       // do_send(&sendjob, "L");
     }
-    
+    /*
     currentPos = GetPos();
     outOfArea = CheckPos(currentPos);
     if (outOfArea) {
       Serial.println("Buoy er uden for område!");
       // do_send(&sendjob, "P");
     }
-    
+    */
+    batMessage = false;
+    kollisionMessage = false;
+
+
     currentHour = hour;
     hour24++;
 
