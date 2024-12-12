@@ -36,7 +36,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  //currentPos = AcquireBasePos();
   delay(40000);
   Serial.println("Start nye målinger");
   currentPos = GetPos();
