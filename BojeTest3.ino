@@ -40,7 +40,7 @@ bool inCollisionBatteryCheckPhase = true;      // Styrer faserne i loop
 unsigned long hour;
 unsigned long currentHour = 0;
 int hour24 = 0;
-const int millisInHour = 15000;
+const int millisInHour = 100000;
 //const int millisInHour = 3600000;
 
 
@@ -97,6 +97,7 @@ void do_send(osjob_t* j, String message) {
   Serial.print(F("Data sendt via LoRa: "));
   Serial.println(message);
 }
+
 
 float readBatteryVoltage(int R1, int R2) {
   int analog = analogRead(A0);
@@ -174,6 +175,7 @@ position GetPos() {
         if (isValidPos(currPos)) {
           estimatePosLat += currPos._lat;
           estimatePosLon += currPos._lon;
+          Serial.println("Nyt data fundet!");
           i++;
         }
       }
@@ -228,9 +230,9 @@ void loop() {
   float actualAcc = totalAcc();
 
   // Kollisionsdetektion
-  if (actualAcc > 1.5 && kollisionMessage == false) {
+  if (actualAcc > 1.2 && kollisionMessage == false) {
     Serial.println("Kollision detekteret!");
-    // do_send(&sendjob, "K");
+    do_send(&sendjob, "K");
    kollisionMessage = true;
   }
   // Batterispænding
@@ -238,7 +240,7 @@ void loop() {
   if (batteryVoltage < 7.0 && batMessage == false) {  // F.eks. tærskelværdi for lav spænding
     Serial.print("Lav batterispænding detekteret!  ");
     Serial.println(batteryVoltage);
-    // do_send(&sendjob, "B");
+    do_send(&sendjob, "B");
     batMessage = true;
   }
 
@@ -255,16 +257,15 @@ void loop() {
     }
     if (lanternData < 255) {
       Serial.println("Lanternen har ikke lyst inden for de sidste 24 timer!");
-      // do_send(&sendjob, "L");
+      do_send(&sendjob, "L");
     }
-    /*
+    
     currentPos = GetPos();
     outOfArea = CheckPos(currentPos);
     if (outOfArea) {
       Serial.println("Buoy er uden for område!");
-      // do_send(&sendjob, "P");
+      do_send(&sendjob, "P");
     }
-    */
     batMessage = false;
     kollisionMessage = false;
 
@@ -277,7 +278,7 @@ void loop() {
       String statusMessage = String(batteryVoltage, 1);  // Batterispænding med én decimal
       Serial.print("Sender statusbesked: ");
       Serial.println(statusMessage);
-      // do_send(&sendjob, statusMessage);
+      do_send(&sendjob, statusMessage);
       statusSendTime = millis();  // Genstart timeren til statusbesked
       hour24 = 0;
     }
@@ -303,6 +304,13 @@ void loop() {
 
     return {
         message: decodedMessage[message] || message
+    };
+}
+//eller
+
+function Decoder(bytes, port) {
+    return {
+        message: String.fromCharCode.apply(null, bytes)
     };
 }
   */
