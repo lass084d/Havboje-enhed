@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
 #include <lmic.h>
+#include <SPI.h>
 #include <hal/hal.h>
 #include <math.h>
 #include <SoftwareSerial.h>
@@ -15,7 +16,7 @@ static const u1_t APPKEY[16] = { 0xA3, 0x1D, 0xB0, 0x4A, 0x1C, 0x50, 0xC7, 0x58,
 // Spændings- og strømforbrugsmåling
 const int measureVoltPin = A0;
 
-const int currentMeasurePin = 8;
+const int currentMeasurePin = 5;
 boolean currentMeasurePinVal = 0;
 unsigned long lastCurrentCheckTime = 0;
 const unsigned long checkCurrentInterval = 10000;
@@ -52,7 +53,7 @@ MPU6050 mpu(Wire);
 
 // Pin mapping Dragino Shield
 const lmic_pinmap lmic_pins = {
-  .nss = 10,
+  .nss = 53,
   .rxtx = LMIC_UNUSED_PIN,
   .rst = 9,
   .dio = { 2, 6, 7 },
@@ -97,7 +98,6 @@ void do_send(osjob_t* j, String message) {
   Serial.print(F("Data sendt via LoRa: "));
   Serial.println(message);
 }
-
 
 float readBatteryVoltage(int R1, int R2) {
   int analog = analogRead(A0);
@@ -219,9 +219,6 @@ void setup() {
   printPosition(basePos);
 }
 
-
-
-
 void loop() {
   unsigned long currentTime = millis();
 
@@ -306,11 +303,3 @@ void loop() {
         message: decodedMessage[message] || message
     };
 }
-//eller
-
-function Decoder(bytes, port) {
-    return {
-        message: String.fromCharCode.apply(null, bytes)
-    };
-}
-  */
